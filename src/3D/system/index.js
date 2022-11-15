@@ -1,100 +1,66 @@
-import {
-  AmbientLight,
-  BoxGeometry,
-  MathUtils,
-  Mesh,
-  MeshStandardMaterial,
-  PerspectiveCamera,
-  PlaneGeometry,
-  Scene,
-  SphereGeometry,
-  WebGLRenderer,
-} from "three";
+import { Color, Object3D, Vector3 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import Loop from "./Loop";
+import { createCamera, createRenderer, createScene, setSize, Loop } from "./utils";
 
-const geometry = new BoxGeometry(3, 3, 3);
-const material = new MeshStandardMaterial({ color: "red" });
+const origin = new Vector3(0, 0, 0);
+export class System {
+  #container;
+  #camera;
+  #renderer;
+  #scene;
+  #controls;
 
-const createScene = () => {
-  return new Scene();
-};
+  constructor(container) {
+    this.#container = container;
+    this.init();
+    this.listeners();
+    this.startAnimation();
+  }
 
-const createSphere = () => {
-  const geometry = new SphereGeometry(1.5, 100, 100);
-  const mesh = new Mesh(geometry, material);
-  mesh.position.z = 1.5;
+  init() {
+    const { clientWidth, clientHeight } = this.#container;
+    this.#scene = createScene();
+    this.#camera = createCamera(clientWidth, clientHeight);
+    this.#renderer = createRenderer(this.#container, this.#camera);
+    this.#controls = new OrbitControls(this.#camera, this.#container);
+    this.#controls.update();
+    this.#scene.background = new Color("#C6D3E2");
+  }
 
-  return mesh;
-};
+  startAnimation() {
+    const loop = new Loop(this.#renderer, this.#scene, this.#camera, []);
+    loop.start();
+  }
 
-const createCamera = (width, height) => {
-  const camera = new PerspectiveCamera(55, width / height, 0.1, 300);
-  camera.position.z = 10;
+  getSystemProperties() {
+    return {
+      camera: this.#camera,
+      renderer: this.#renderer,
+      scene: this.#scene,
+    };
+  }
 
-  return camera;
-};
+  addElementToScene(object3D) {
+    if (Array.isArray(object3D)) {
+      object3D.forEach((element) => {
+        if (element instanceof Object3D) this.addElementToScene(element);
+      });
+      return;
+    }
+    if (!(object3D instanceof Object3D)) return;
+    this.#scene.add(object3D);
+  }
 
-const createCube = (position) => {
-  const { x, y, z } = position;
-  const mesh = new Mesh(geometry, material);
-  mesh.position.set(x, y, z);
-  mesh.position.z = 2.5;
-  mesh.tick = (delta) => {
-    mesh.rotateX(delta * MathUtils.degToRad(30));
-    mesh.rotateY(delta * MathUtils.degToRad(30));
-    mesh.rotateZ(delta * MathUtils.degToRad(30));
-  };
+  moveCamera(position) {
+    const { x, y, z } = position;
+    this.#camera.position.set(x, y, z);
+    this.#camera.lookAt(origin);
+  }
 
-  return mesh;
-};
-
-const setSize = (renderer, camera, width, height) => {
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
-  camera.updateMatrixWorld();
-};
-
-const createRenderer = (container, camera) => {
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  const renderer = new WebGLRenderer();
-  setSize(renderer, camera, width, height);
-  container.append(renderer.domElement);
-
-  return renderer;
-};
-
-const createLight = () => {
-  return new AmbientLight();
-};
-
-const createContols = (camera, element) => {
-  const controls = new OrbitControls(camera, element);
-  controls.tick = () => controls.update();
-
-  return controls;
-};
-
-const createGround = () => {
-  const geometry = new PlaneGeometry(50, 50);
-  const material = new MeshStandardMaterial({ color: "green" });
-  const mesh = new Mesh(geometry, material);
-
-  return mesh;
-};
-
-export {
-  createScene,
-  createCamera,
-  createCube,
-  createRenderer,
-  setSize,
-  createLight,
-  Loop,
-  createContols,
-  createGround,
-  createSphere,
-};
+  listeners() {
+    window.addEventListener("resize", () => {
+      const { clientWidth, clientHeight } = this.#container;
+      setSize(this.#renderer, this.#camera, clientWidth, clientHeight);
+    });
+  }
+}
